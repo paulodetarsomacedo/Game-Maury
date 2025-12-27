@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<title>Missão Conhecimento</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+
+<style>
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: "Arial Rounded MT Bold", Arial, sans-serif;
+  background: linear-gradient(160deg, #6a11cb, #2575fc);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ===== SPLASH ===== */
+.splash {
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(160deg, #4a148c, #1e88e5);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  text-align: center;
+  z-index: 10;
+}
+
+.splash h1 {
+  font-size: 2.2rem;
+  margin-bottom: 10px;
+  animation: pulse 1.8s infinite;
+}
+
+.splash p {
+  font-size: 0.9rem;
+  opacity: 0.85;
+  margin-top: 8px;
+}
+
+.start-btn {
+  margin-top: 30px;
+  padding: 14px 28px;
+  font-size: 1.1rem;
+  border: none;
+  border-radius: 14px;
+  background: #ffeb3b;
+  color: #333;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(0,0,0,.3);
+}
+
+.start-btn:active {
+  transform: scale(0.95);
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+
+/* ===== GAME ===== */
+.game {
+  background: white;
+  width: 100%;
+  max-width: 420px;
+  margin: 10px;
+  padding: 20px;
+  border-radius: 20px;
+  box-shadow: 0 20px 40px rgba(0,0,0,.25);
+  text-align: center;
+  display: none;
+}
+
+h2 {
+  margin-top: 0;
+  color: #4a148c;
+}
+
+.level {
+  font-weight: bold;
+  margin-bottom: 10px;
+  color: #1565c0;
+}
+
+.question {
+  font-size: 1.25rem;
+  margin: 20px 0;
+}
+
+.options {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+button {
+  padding: 14px;
+  font-size: 1rem;
+  border-radius: 12px;
+  border: none;
+  cursor: pointer;
+  background: #e3f2fd;
+}
+
+button:active {
+  transform: scale(0.97);
+}
+
+.correct { background: #c8e6c9 !important; }
+.wrong { background: #ffcdd2 !important; }
+
+.feedback {
+  margin-top: 15px;
+  font-size: 1.1rem;
+  min-height: 24px;
+}
+
+.score {
+  margin-top: 10px;
+  font-weight: bold;
+}
+
+.restart {
+  margin-top: 20px;
+  background: #4a148c;
+  color: white;
+}
+</style>
+</head>
+
+<body>
+
+<!-- SPLASH -->
+<div class="splash" id="splash">
+  <h1>🚀 Missão Conhecimento</h1>
+  <p>Aprender brincando é mais divertido!</p>
+  <p><small>criado e desenvolvido por<br><b>Paulo de Tarso S. De Macedo</b></small></p>
+  <button class="start-btn" onclick="startGame()">Começar</button>
+</div>
+
+<!-- GAME -->
+<div class="game" id="game">
+  <h2>🚀 Missão Conhecimento</h2>
+  <div id="level" class="level"></div>
+  <div id="question" class="question"></div>
+  <div id="options" class="options"></div>
+  <div id="feedback" class="feedback"></div>
+  <div id="score" class="score"></div>
+  <button id="restart" class="restart" style="display:none">Jogar Novamente</button>
+</div>
+
+<script>
+/* ===== AUDIO ===== */
+let audioCtx;
+function playSound(freq, duration) {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.frequency.value = freq;
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start();
+  gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+  osc.stop(audioCtx.currentTime + duration);
+}
+
+/* ===== GAME DATA ===== */
+const levels = [
+  [
+    { q: "Quanto é 5 + 3?", o: ["6","7","8","9"], a: 2 },
+    { q: "Plural de flor?", o: ["Flors","Flores","Florais","Flore"], a: 1 }
+  ],
+  [
+    { q: "Quanto é 7 x 4?", o: ["21","24","28","32"], a: 2 },
+    { q: "Qual é um animal vertebrado?", o: ["Minhoca","Caracol","Cachorro","Medusa"], a: 2 }
+  ],
+  [
+    { q: "Quanto é 36 ÷ 6?", o: ["5","6","7","8"], a: 1 },
+    { q: "Qual planeta tem anéis?", o: ["Marte","Saturno","Vênus","Terra"], a: 1 }
+  ]
+];
+
+let level = 0, questionIndex = 0, score = 0;
+
+const levelEl = document.getElementById("level");
+const questionEl = document.getElementById("question");
+const optionsEl = document.getElementById("options");
+const feedbackEl = document.getElementById("feedback");
+const scoreEl = document.getElementById("score");
+const restartBtn = document.getElementById("restart");
+const gameEl = document.getElementById("game");
+const splashEl = document.getElementById("splash");
+
+function startGame() {
+  splashEl.style.display = "none";
+  gameEl.style.display = "block";
+  loadQuestion();
+}
+
+function loadQuestion() {
+  feedbackEl.textContent = "";
+  optionsEl.innerHTML = "";
+  levelEl.textContent = `⭐ Nível ${level + 1}`;
+
+  const q = levels[level][questionIndex];
+  questionEl.textContent = q.q;
+  scoreEl.textContent = `Pontuação: ${score}`;
+
+  q.o.forEach((opt, i) => {
+    const btn = document.createElement("button");
+    btn.textContent = opt;
+    btn.onclick = () => checkAnswer(i, btn);
+    optionsEl.appendChild(btn);
+  });
+}
+
+function checkAnswer(choice, btn) {
+  const correct = levels[level][questionIndex].a;
+  const buttons = optionsEl.querySelectorAll("button");
+  buttons.forEach(b => b.disabled = true);
+
+  if (choice === correct) {
+    btn.classList.add("correct");
+    feedbackEl.textContent = "🎉 Acertou!";
+    score += 10;
+    playSound(800, 0.3);
+  } else {
+    btn.classList.add("wrong");
+    buttons[correct].classList.add("correct");
+    feedbackEl.textContent = "❌ Quase!";
+    playSound(200, 0.4);
+  }
+
+  setTimeout(nextStep, 1200);
+}
+
+function nextStep() {
+  questionIndex++;
+  if (questionIndex < levels[level].length) {
+    loadQuestion();
+  } else {
+    level++;
+    questionIndex = 0;
+    if (level < levels.length) loadQuestion();
+    else endGame();
+  }
+}
+
+function endGame() {
+  questionEl.textContent = "🏆 Missão Concluída!";
+  optionsEl.innerHTML = "";
+  levelEl.textContent = "";
+  feedbackEl.textContent = `Pontuação final: ${score}`;
+  scoreEl.textContent = "";
+  restartBtn.style.display = "block";
+}
+
+restartBtn.onclick = () => location.reload();
+</script>
+
+</body>
+</html>
